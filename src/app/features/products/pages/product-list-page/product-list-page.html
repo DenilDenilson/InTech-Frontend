@@ -18,7 +18,7 @@
   <form
     [formGroup]="filtersForm"
     (ngSubmit)="onSearch()"
-    class="grid gap-4 rounded-xl border border-slate-200 bg-slate-50 p-4 lg:grid-cols-[1.2fr_1fr_140px_140px_220px_auto_auto]"
+    class="grid gap-4 rounded-xl border border-slate-200 bg-slate-50 p-4 lg:grid-cols-[1.3fr_1fr_150px_150px_auto]"
   >
     <label class="space-y-1">
       <span class="text-xs font-medium text-slate-600">Buscar por nombre</span>
@@ -62,26 +62,6 @@
       />
     </label>
 
-    <label class="space-y-1">
-      <span class="text-xs font-medium text-slate-600">Orden</span>
-      <select
-        formControlName="ordering"
-        class="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm outline-none transition focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100"
-      >
-        <option value="-created_at">Más recientes</option>
-        <option value="created_at">Más antiguos</option>
-        <option value="price">Menor precio</option>
-        <option value="-price">Mayor precio</option>
-      </select>
-    </label>
-
-    <button
-      type="submit"
-      class="self-end rounded-lg bg-slate-900 px-4 py-2 text-sm font-semibold text-white transition hover:bg-slate-700"
-    >
-      Filtrar
-    </button>
-
     <button
       type="button"
       (click)="clearFilters()"
@@ -89,6 +69,12 @@
     >
       Limpiar
     </button>
+
+    <p class="text-xs text-slate-500 lg:col-span-5">
+      Los filtros se aplican automáticamente. Puedes ordenar haciendo click en las columnas
+      <span class="font-medium text-slate-700">Precio</span> y
+      <span class="font-medium text-slate-700">Creado</span>.
+    </p>
   </form>
 
   @if (errorMessage()) {
@@ -122,18 +108,37 @@
               <th class="px-4 py-3 text-left font-semibold text-slate-600">
                 Nombre
               </th>
+
               <th class="px-4 py-3 text-left font-semibold text-slate-600">
                 SKU
               </th>
+
               <th class="px-4 py-3 text-left font-semibold text-slate-600">
-                Precio
+                <button
+                  type="button"
+                  (click)="changeOrdering('price')"
+                  class="inline-flex items-center gap-1 font-semibold transition hover:text-indigo-700"
+                >
+                  Precio
+                  <span class="text-indigo-600">{{ getSortIndicator('price') }}</span>
+                </button>
               </th>
+
               <th class="px-4 py-3 text-left font-semibold text-slate-600">
                 Owner
               </th>
+
               <th class="px-4 py-3 text-left font-semibold text-slate-600">
-                Creado
+                <button
+                  type="button"
+                  (click)="changeOrdering('created_at')"
+                  class="inline-flex items-center gap-1 font-semibold transition hover:text-indigo-700"
+                >
+                  Creado
+                  <span class="text-indigo-600">{{ getSortIndicator('created_at') }}</span>
+                </button>
               </th>
+
               <th class="px-4 py-3 text-right font-semibold text-slate-600">
                 Acciones
               </th>
@@ -156,14 +161,23 @@
                 </td>
 
                 <td class="whitespace-nowrap px-4 py-3 text-slate-500">
-                  @if (product.owner) {
-                    <span
-                      class="rounded-full bg-slate-100 px-2 py-1 text-xs font-medium text-slate-700"
-                    >
-                      {{ product.owner }}
-                    </span>
+                  @if (ownerDisplay(product.owner); as owner) {
+                    <div>
+                      <p class="font-medium text-slate-800">
+                        {{ owner.name }}
+                      </p>
+                      <p class="text-xs text-slate-500">
+                        {{ owner.email }}
+                      </p>
+                    </div>
                   } @else {
-                    <span class="text-slate-400">Sin owner</span>
+                    @if (product.owner) {
+                      <span class="text-xs text-slate-400">
+                        Owner no encontrado · {{ shortUuid(product.owner) }}
+                      </span>
+                    } @else {
+                      <span class="text-slate-400">Sin owner</span>
+                    }
                   }
                 </td>
 
@@ -197,31 +211,63 @@
       </div>
 
       <div
-        class="flex flex-col gap-3 border-t border-slate-200 bg-slate-50 px-4 py-3 sm:flex-row sm:items-center sm:justify-between"
+        class="flex flex-col gap-3 border-t border-slate-200 bg-slate-50 px-4 py-3 lg:flex-row lg:items-center lg:justify-between"
       >
         <p class="text-sm text-slate-600">
           Total:
           <span class="font-semibold text-slate-900">{{ count() }}</span>
-          · Página {{ page() }}
+          · Página {{ page() }} de {{ totalPages() }}
         </p>
 
-        <div class="flex gap-2">
+        <div class="flex flex-wrap gap-2">
           <button
             type="button"
-            (click)="loadProducts(page() - 1)"
-            [disabled]="!previous()"
+            (click)="goToPage(1)"
+            [disabled]="page() === 1 || isLoading()"
+            class="rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-sm font-semibold text-slate-700 transition hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            Primera
+          </button>
+
+          <button
+            type="button"
+            (click)="goToPage(page() - 1)"
+            [disabled]="!previous() || isLoading()"
             class="rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-sm font-semibold text-slate-700 transition hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-50"
           >
             Anterior
           </button>
 
+          @for (pageNumber of visiblePages(); track pageNumber) {
+            <button
+              type="button"
+              (click)="goToPage(pageNumber)"
+              [disabled]="isLoading()"
+              [class.bg-indigo-600]="pageNumber === page()"
+              [class.text-white]="pageNumber === page()"
+              [class.border-indigo-600]="pageNumber === page()"
+              class="rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-sm font-semibold text-slate-700 transition hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              {{ pageNumber }}
+            </button>
+          }
+
           <button
             type="button"
-            (click)="loadProducts(page() + 1)"
-            [disabled]="!next()"
+            (click)="goToPage(page() + 1)"
+            [disabled]="!next() || isLoading()"
             class="rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-sm font-semibold text-slate-700 transition hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-50"
           >
             Siguiente
+          </button>
+
+          <button
+            type="button"
+            (click)="goToPage(totalPages())"
+            [disabled]="page() === totalPages() || isLoading()"
+            class="rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-sm font-semibold text-slate-700 transition hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            Última
           </button>
         </div>
       </div>

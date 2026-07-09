@@ -1,13 +1,22 @@
 import { DatePipe } from '@angular/common';
-import { Component, OnInit, signal } from '@angular/core';
+import { Component, DestroyRef, OnInit, computed, inject, signal } from '@angular/core';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { FormControl, FormGroup, ReactiveFormsModule } from '@angular/forms';
 import { RouterLink } from '@angular/router';
-import { finalize } from 'rxjs';
+import { debounceTime, finalize } from 'rxjs';
 
+import { Person } from '../../../../core/models/person';
 import { Product, ProductFilters } from '../../../../core/models/product';
+import { PersonService } from '../../../persons/services/person.service';
 import { ProductService } from '../../services/product.service';
 
 type ProductOrdering = 'price' | '-price' | 'created_at' | '-created_at';
+type SortableProductField = 'price' | 'created_at';
+
+interface OwnerDisplay {
+  name: string;
+  email: string;
+}
 
 @Component({
   selector: 'app-product-list-page',
@@ -16,7 +25,10 @@ type ProductOrdering = 'price' | '-price' | 'created_at' | '-created_at';
   templateUrl: './product-list-page.html',
 })
 export class ProductListPageComponent implements OnInit {
+  private readonly destroyRef = inject(DestroyRef);
+
   readonly products = signal<Product[]>([]);
+  readonly ownerMap = signal<Record<string, OwnerDisplay>>({});
 
   readonly count = signal(0);
   readonly page = signal(1);
@@ -27,6 +39,22 @@ export class ProductListPageComponent implements OnInit {
   readonly isDeletingId = signal<string | null>(null);
   readonly errorMessage = signal('');
 
+  readonly pageSize = 10;
+
+  readonly totalPages = computed(() => {
+    return Math.max(1, Math.ceil(this.count() / this.pageSize));
+  });
+
+  readonly visiblePages = computed(() => {
+    const currentPage = this.page();
+    const totalPages = this.totalPages();
+
+    const start = Math.max(1, currentPage - 2);
+    const end = Math.min(totalPages, currentPage + 2);
+
+    return Array.from({ length: end - start + 1 }, (_, index) => start + index);
+  });
+
   readonly filtersForm = new FormGroup({
     q: new FormControl('', { nonNullable: true }),
     sku: new FormControl('', { nonNullable: true }),
@@ -35,10 +63,23 @@ export class ProductListPageComponent implements OnInit {
     ordering: new FormControl<ProductOrdering>('-created_at', { nonNullable: true }),
   });
 
-  constructor(private readonly productService: ProductService) {}
+  constructor(
+    private readonly productService: ProductService,
+    private readonly personService: PersonService,
+  ) {}
 
   ngOnInit(): void {
+    this.loadOwners();
     this.loadProducts();
+    this.setupRealtimeFilters();
+  }
+
+  private setupRealtimeFilters(): void {
+    this.filtersForm.valueChanges
+      .pipe(debounceTime(350), takeUntilDestroyed(this.destroyRef))
+      .subscribe(() => {
+        this.loadProducts(1);
+      });
   }
 
   loadProducts(page = 1): void {
@@ -71,20 +112,93 @@ export class ProductListPageComponent implements OnInit {
       });
   }
 
+  loadOwners(page = 1, accumulatedOwners: Person[] = []): void {
+    this.personService.getPersons({ page, ordering: '-created_at' }).subscribe({
+      next: (response) => {
+        const owners = [...accumulatedOwners, ...response.results];
+
+        if (response.next) {
+          this.loadOwners(page + 1, owners);
+          return;
+        }
+
+        const ownerMap = owners.reduce<Record<string, OwnerDisplay>>((acc, owner) => {
+          acc[owner.id] = {
+            name: `${owner.first_name} ${owner.last_name}`.trim(),
+            email: owner.email,
+          };
+
+          return acc;
+        }, {});
+
+        this.ownerMap.set(ownerMap);
+      },
+      error: () => {
+        this.ownerMap.set({});
+      },
+    });
+  }
+
   onSearch(): void {
     this.loadProducts(1);
   }
 
   clearFilters(): void {
-    this.filtersForm.reset({
-      q: '',
-      sku: '',
-      price_min: '',
-      price_max: '',
-      ordering: '-created_at',
-    });
+    this.filtersForm.reset(
+      {
+        q: '',
+        sku: '',
+        price_min: '',
+        price_max: '',
+        ordering: '-created_at',
+      },
+      { emitEvent: false },
+    );
 
     this.loadProducts(1);
+  }
+
+  changeOrdering(field: SortableProductField): void {
+    const currentOrdering = this.filtersForm.controls.ordering.value;
+
+    const nextOrdering: ProductOrdering =
+      currentOrdering === field ? `-${field}` : field;
+
+    this.filtersForm.controls.ordering.setValue(nextOrdering);
+  }
+
+  getSortIndicator(field: SortableProductField): string {
+    const currentOrdering = this.filtersForm.controls.ordering.value;
+
+    if (currentOrdering === field) {
+      return '↑';
+    }
+
+    if (currentOrdering === `-${field}`) {
+      return '↓';
+    }
+
+    return '';
+  }
+
+  goToPage(page: number): void {
+    if (page < 1 || page > this.totalPages() || page === this.page() || this.isLoading()) {
+      return;
+    }
+
+    this.loadProducts(page);
+  }
+
+  ownerDisplay(ownerId: string | null): OwnerDisplay | null {
+    if (!ownerId) {
+      return null;
+    }
+
+    return this.ownerMap()[ownerId] ?? null;
+  }
+
+  shortUuid(id: string): string {
+    return id.slice(0, 8);
   }
 
   deleteProduct(product: Product): void {
