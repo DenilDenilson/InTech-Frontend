@@ -1,0 +1,127 @@
+import { provideHttpClient } from '@angular/common/http';
+import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
+import { TestBed } from '@angular/core/testing';
+
+import { environment } from '../../../../environments/environment';
+import { PersonPayload } from '../../../core/models/person';
+import { PersonService } from './person.service';
+
+describe('PersonService', () => {
+  let service: PersonService;
+  let httpMock: HttpTestingController;
+
+  const apiUrl = `${environment.apiBaseUrl}/api/v1/persons/`;
+
+  beforeEach(() => {
+    TestBed.configureTestingModule({
+      providers: [
+        PersonService,
+        provideHttpClient(),
+        provideHttpClientTesting(),
+      ],
+    });
+
+    service = TestBed.inject(PersonService);
+    httpMock = TestBed.inject(HttpTestingController);
+  });
+
+  afterEach(() => {
+    httpMock.verify();
+  });
+
+  it('should list persons with filters', () => {
+    service
+      .getPersons({
+        email: 'ana@example.com',
+        last_name: 'Torres',
+        ordering: '-created_at',
+        page: 2,
+      })
+      .subscribe((response) => {
+        expect(response.count).toBe(1);
+        expect(response.results[0].email).toBe('ana@example.com');
+      });
+
+    const req = httpMock.expectOne((request) => request.url === apiUrl);
+
+    expect(req.request.method).toBe('GET');
+    expect(req.request.params.get('email')).toBe('ana@example.com');
+    expect(req.request.params.get('last_name')).toBe('Torres');
+    expect(req.request.params.get('ordering')).toBe('-created_at');
+    expect(req.request.params.get('page')).toBe('2');
+
+    req.flush({
+      count: 1,
+      next: null,
+      previous: null,
+      results: [
+        {
+          id: 'person-1',
+          first_name: 'Ana',
+          last_name: 'Torres',
+          email: 'ana@example.com',
+          created_at: '2026-01-01T00:00:00Z',
+        },
+      ],
+    });
+  });
+
+  it('should create a person', () => {
+    const payload: PersonPayload = {
+      first_name: 'Ana',
+      last_name: 'Torres',
+      email: 'ana@example.com',
+    };
+
+    service.createPerson(payload).subscribe((person) => {
+      expect(person.id).toBe('person-1');
+      expect(person.email).toBe(payload.email);
+    });
+
+    const req = httpMock.expectOne(apiUrl);
+
+    expect(req.request.method).toBe('POST');
+    expect(req.request.body).toEqual(payload);
+
+    req.flush({
+      id: 'person-1',
+      ...payload,
+      created_at: '2026-01-01T00:00:00Z',
+    });
+  });
+
+  it('should update a person', () => {
+    const payload: PersonPayload = {
+      first_name: 'Ana',
+      last_name: 'Lopez',
+      email: 'ana@example.com',
+    };
+
+    service.updatePerson('person-1', payload).subscribe((person) => {
+      expect(person.last_name).toBe('Lopez');
+    });
+
+    const req = httpMock.expectOne(`${apiUrl}person-1/`);
+
+    expect(req.request.method).toBe('PATCH');
+    expect(req.request.body).toEqual(payload);
+
+    req.flush({
+      id: 'person-1',
+      ...payload,
+      created_at: '2026-01-01T00:00:00Z',
+    });
+  });
+
+  it('should delete a person', () => {
+    service.deletePerson('person-1').subscribe((response) => {
+      expect(response).toBeNull();
+    });
+
+    const req = httpMock.expectOne(`${apiUrl}person-1/`);
+
+    expect(req.request.method).toBe('DELETE');
+
+    req.flush(null);
+  });
+});
