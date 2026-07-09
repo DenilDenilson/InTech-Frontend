@@ -1,0 +1,128 @@
+<div class="space-y-6">
+  <div class="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+    <div>
+      <h2 class="text-2xl font-semibold text-slate-950">
+        {{ isEditMode() ? 'Editar producto' : 'Nuevo producto' }}
+      </h2>
+      <p class="mt-1 text-sm text-slate-600">
+        Registra activos tecnológicos del catálogo interno.
+      </p>
+    </div>
+
+    <a
+      routerLink="/products"
+      class="inline-flex items-center justify-center rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-semibold text-slate-700 transition hover:bg-slate-100"
+    >
+      Volver
+    </a>
+  </div>
+
+  @if (errorMessage()) {
+    <div class="rounded-lg border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">
+      {{ errorMessage() }}
+    </div>
+  }
+
+  @if (isLoading()) {
+    <div class="rounded-lg border border-slate-200 bg-white px-4 py-8 text-center text-sm text-slate-600">
+      Cargando producto...
+    </div>
+  } @else {
+    <form
+      [formGroup]="form"
+      (ngSubmit)="saveProduct()"
+      class="space-y-5 rounded-xl border border-slate-200 bg-slate-50 p-5"
+    >
+      <div class="grid gap-5 md:grid-cols-2">
+        <label class="space-y-1">
+          <span class="text-sm font-medium text-slate-700">Nombre</span>
+          <input
+            type="text"
+            formControlName="name"
+            placeholder="Laptop Lenovo ThinkPad"
+            class="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm outline-none transition focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100"
+          />
+
+          @if (isInvalid('name')) {
+            <p class="text-xs text-rose-600">
+              El nombre es requerido y debe tener máximo 150 caracteres.
+            </p>
+          }
+        </label>
+
+        <label class="space-y-1">
+          <span class="text-sm font-medium text-slate-700">SKU</span>
+          <input
+            type="text"
+            formControlName="sku"
+            placeholder="LAP-LEN-001"
+            class="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm outline-none transition focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100"
+          />
+
+          @if (isInvalid('sku')) {
+            <p class="text-xs text-rose-600">
+              El SKU es requerido y debe tener entre 3 y 50 caracteres.
+            </p>
+          }
+        </label>
+      </div>
+
+      <div class="grid gap-5 md:grid-cols-2">
+        <label class="space-y-1">
+          <span class="text-sm font-medium text-slate-700">Precio</span>
+          <input
+            type="number"
+            min="0"
+            step="0.01"
+            formControlName="price"
+            placeholder="3500.00"
+            class="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm outline-none transition focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100"
+          />
+
+          @if (isInvalid('price')) {
+            <p class="text-xs text-rose-600">
+              El precio es requerido y debe ser mayor o igual a 0.
+            </p>
+          }
+        </label>
+
+        <label class="space-y-1">
+          <span class="text-sm font-medium text-slate-700">Owner</span>
+          <select
+            formControlName="owner"
+            class="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm outline-none transition focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100"
+          >
+            <option [ngValue]="null">Sin owner</option>
+
+            @for (owner of owners(); track owner.id) {
+              <option [ngValue]="owner.id">
+                {{ owner.first_name }} {{ owner.last_name }} — {{ owner.email }}
+              </option>
+            }
+          </select>
+
+          <p class="text-xs text-slate-500">
+            Opcional. Puedes dejar el producto sin responsable asignado.
+          </p>
+        </label>
+      </div>
+
+      <div class="flex flex-col-reverse gap-3 border-t border-slate-200 pt-5 sm:flex-row sm:justify-end">
+        <a
+          routerLink="/products"
+          class="inline-flex items-center justify-center rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-semibold text-slate-700 transition hover:bg-slate-100"
+        >
+          Cancelar
+        </a>
+
+        <button
+          type="submit"
+          [disabled]="isSaving()"
+          class="inline-flex items-center justify-center rounded-lg bg-indigo-600 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-indigo-700 disabled:cursor-not-allowed disabled:opacity-60"
+        >
+          {{ isSaving() ? 'Guardando...' : isEditMode() ? 'Guardar cambios' : 'Crear producto' }}
+        </button>
+      </div>
+    </form>
+  }
+</div>

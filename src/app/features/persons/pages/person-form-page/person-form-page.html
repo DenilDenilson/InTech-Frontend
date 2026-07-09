@@ -1,0 +1,104 @@
+<div class="space-y-6">
+  <div class="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+    <div>
+      <h2 class="text-2xl font-semibold text-slate-950">
+        {{ isEditMode() ? 'Editar persona' : 'Nueva persona' }}
+      </h2>
+      <p class="mt-1 text-sm text-slate-600">
+        Registra responsables, clientes internos u owners de productos.
+      </p>
+    </div>
+
+    <a
+      routerLink="/persons"
+      class="inline-flex items-center justify-center rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-semibold text-slate-700 transition hover:bg-slate-100"
+    >
+      Volver
+    </a>
+  </div>
+
+  @if (errorMessage()) {
+    <div class="rounded-lg border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">
+      {{ errorMessage() }}
+    </div>
+  }
+
+  @if (isLoading()) {
+    <div class="rounded-lg border border-slate-200 bg-white px-4 py-8 text-center text-sm text-slate-600">
+      Cargando persona...
+    </div>
+  } @else {
+    <form
+      [formGroup]="form"
+      (ngSubmit)="savePerson()"
+      class="space-y-5 rounded-xl border border-slate-200 bg-slate-50 p-5"
+    >
+      <div class="grid gap-5 md:grid-cols-2">
+        <label class="space-y-1">
+          <span class="text-sm font-medium text-slate-700">Nombre</span>
+          <input
+            type="text"
+            formControlName="first_name"
+            placeholder="Ana"
+            class="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm outline-none transition focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100"
+          />
+
+          @if (isInvalid('first_name')) {
+            <p class="text-xs text-rose-600">
+              El nombre es requerido y debe tener máximo 100 caracteres.
+            </p>
+          }
+        </label>
+
+        <label class="space-y-1">
+          <span class="text-sm font-medium text-slate-700">Apellido</span>
+          <input
+            type="text"
+            formControlName="last_name"
+            placeholder="Torres"
+            class="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm outline-none transition focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100"
+          />
+
+          @if (isInvalid('last_name')) {
+            <p class="text-xs text-rose-600">
+              El apellido es requerido y debe tener máximo 100 caracteres.
+            </p>
+          }
+        </label>
+      </div>
+
+      <label class="block space-y-1">
+        <span class="text-sm font-medium text-slate-700">Email</span>
+        <input
+          type="email"
+          formControlName="email"
+          placeholder="ana.torres@example.com"
+          class="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm outline-none transition focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100"
+        />
+
+        @if (isInvalid('email')) {
+          <p class="text-xs text-rose-600">
+            Ingresa un email válido.
+          </p>
+        }
+      </label>
+
+      <div class="flex flex-col-reverse gap-3 border-t border-slate-200 pt-5 sm:flex-row sm:justify-end">
+        <a
+          routerLink="/persons"
+          class="inline-flex items-center justify-center rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-semibold text-slate-700 transition hover:bg-slate-100"
+        >
+          Cancelar
+        </a>
+
+        <button
+          type="submit"
+          [disabled]="isSaving()"
+          class="inline-flex items-center justify-center rounded-lg bg-indigo-600 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-indigo-700 disabled:cursor-not-allowed disabled:opacity-60"
+        >
+          {{ isSaving() ? 'Guardando...' : isEditMode() ? 'Guardar cambios' : 'Crear persona' }}
+        </button>
+      </div>
+    </form>
+  }
+</div>

@@ -1,0 +1,230 @@
+<div class="space-y-6">
+  <div class="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+    <div>
+      <h2 class="text-2xl font-semibold text-slate-950">Productos</h2>
+      <p class="mt-1 text-sm text-slate-600">
+        Activos tecnológicos como laptops, monitores, routers, periféricos y accesorios.
+      </p>
+    </div>
+
+    <a
+      routerLink="/products/new"
+      class="inline-flex items-center justify-center rounded-lg bg-indigo-600 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-indigo-700"
+    >
+      Nuevo producto
+    </a>
+  </div>
+
+  <form
+    [formGroup]="filtersForm"
+    (ngSubmit)="onSearch()"
+    class="grid gap-4 rounded-xl border border-slate-200 bg-slate-50 p-4 lg:grid-cols-[1.2fr_1fr_140px_140px_220px_auto_auto]"
+  >
+    <label class="space-y-1">
+      <span class="text-xs font-medium text-slate-600">Buscar por nombre</span>
+      <input
+        type="text"
+        formControlName="q"
+        placeholder="Laptop"
+        class="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm outline-none transition focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100"
+      />
+    </label>
+
+    <label class="space-y-1">
+      <span class="text-xs font-medium text-slate-600">SKU</span>
+      <input
+        type="text"
+        formControlName="sku"
+        placeholder="LAP-LEN-001"
+        class="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm outline-none transition focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100"
+      />
+    </label>
+
+    <label class="space-y-1">
+      <span class="text-xs font-medium text-slate-600">Precio mín.</span>
+      <input
+        type="number"
+        min="0"
+        formControlName="price_min"
+        placeholder="100"
+        class="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm outline-none transition focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100"
+      />
+    </label>
+
+    <label class="space-y-1">
+      <span class="text-xs font-medium text-slate-600">Precio máx.</span>
+      <input
+        type="number"
+        min="0"
+        formControlName="price_max"
+        placeholder="5000"
+        class="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm outline-none transition focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100"
+      />
+    </label>
+
+    <label class="space-y-1">
+      <span class="text-xs font-medium text-slate-600">Orden</span>
+      <select
+        formControlName="ordering"
+        class="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm outline-none transition focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100"
+      >
+        <option value="-created_at">Más recientes</option>
+        <option value="created_at">Más antiguos</option>
+        <option value="price">Menor precio</option>
+        <option value="-price">Mayor precio</option>
+      </select>
+    </label>
+
+    <button
+      type="submit"
+      class="self-end rounded-lg bg-slate-900 px-4 py-2 text-sm font-semibold text-white transition hover:bg-slate-700"
+    >
+      Filtrar
+    </button>
+
+    <button
+      type="button"
+      (click)="clearFilters()"
+      class="self-end rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-semibold text-slate-700 transition hover:bg-slate-100"
+    >
+      Limpiar
+    </button>
+  </form>
+
+  @if (errorMessage()) {
+    <div class="rounded-lg border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">
+      {{ errorMessage() }}
+    </div>
+  }
+
+  @if (isLoading()) {
+    <div
+      class="rounded-lg border border-slate-200 bg-white px-4 py-8 text-center text-sm text-slate-600"
+    >
+      Cargando productos...
+    </div>
+  }
+
+  @if (!isLoading() && !errorMessage() && products().length === 0) {
+    <div
+      class="rounded-lg border border-slate-200 bg-white px-4 py-8 text-center text-sm text-slate-600"
+    >
+      No se encontraron resultados.
+    </div>
+  }
+
+  @if (!isLoading() && products().length > 0) {
+    <div class="overflow-hidden rounded-xl border border-slate-200">
+      <div class="overflow-x-auto">
+        <table class="min-w-full divide-y divide-slate-200 bg-white text-sm">
+          <thead class="bg-slate-50">
+            <tr>
+              <th class="px-4 py-3 text-left font-semibold text-slate-600">
+                Nombre
+              </th>
+              <th class="px-4 py-3 text-left font-semibold text-slate-600">
+                SKU
+              </th>
+              <th class="px-4 py-3 text-left font-semibold text-slate-600">
+                Precio
+              </th>
+              <th class="px-4 py-3 text-left font-semibold text-slate-600">
+                Owner
+              </th>
+              <th class="px-4 py-3 text-left font-semibold text-slate-600">
+                Creado
+              </th>
+              <th class="px-4 py-3 text-right font-semibold text-slate-600">
+                Acciones
+              </th>
+            </tr>
+          </thead>
+
+          <tbody class="divide-y divide-slate-100">
+            @for (product of products(); track product.id) {
+              <tr class="transition hover:bg-slate-50">
+                <td class="whitespace-nowrap px-4 py-3 font-medium text-slate-900">
+                  {{ product.name }}
+                </td>
+
+                <td class="whitespace-nowrap px-4 py-3 text-slate-700">
+                  {{ product.sku }}
+                </td>
+
+                <td class="whitespace-nowrap px-4 py-3 font-semibold text-slate-900">
+                  S/ {{ product.price }}
+                </td>
+
+                <td class="whitespace-nowrap px-4 py-3 text-slate-500">
+                  @if (product.owner) {
+                    <span
+                      class="rounded-full bg-slate-100 px-2 py-1 text-xs font-medium text-slate-700"
+                    >
+                      {{ product.owner }}
+                    </span>
+                  } @else {
+                    <span class="text-slate-400">Sin owner</span>
+                  }
+                </td>
+
+                <td class="whitespace-nowrap px-4 py-3 text-slate-500">
+                  {{ product.created_at | date: 'dd/MM/yyyy HH:mm' }}
+                </td>
+
+                <td class="whitespace-nowrap px-4 py-3 text-right">
+                  <div class="flex justify-end gap-2">
+                    <a
+                      [routerLink]="['/products', product.id, 'edit']"
+                      class="rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 transition hover:bg-slate-100"
+                    >
+                      Editar
+                    </a>
+
+                    <button
+                      type="button"
+                      (click)="deleteProduct(product)"
+                      [disabled]="isDeletingId() === product.id"
+                      class="rounded-lg border border-rose-200 bg-rose-50 px-3 py-1.5 text-xs font-semibold text-rose-700 transition hover:bg-rose-100 disabled:cursor-not-allowed disabled:opacity-60"
+                    >
+                      {{ isDeletingId() === product.id ? 'Eliminando...' : 'Eliminar' }}
+                    </button>
+                  </div>
+                </td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      </div>
+
+      <div
+        class="flex flex-col gap-3 border-t border-slate-200 bg-slate-50 px-4 py-3 sm:flex-row sm:items-center sm:justify-between"
+      >
+        <p class="text-sm text-slate-600">
+          Total:
+          <span class="font-semibold text-slate-900">{{ count() }}</span>
+          · Página {{ page() }}
+        </p>
+
+        <div class="flex gap-2">
+          <button
+            type="button"
+            (click)="loadProducts(page() - 1)"
+            [disabled]="!previous()"
+            class="rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-sm font-semibold text-slate-700 transition hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            Anterior
+          </button>
+
+          <button
+            type="button"
+            (click)="loadProducts(page() + 1)"
+            [disabled]="!next()"
+            class="rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-sm font-semibold text-slate-700 transition hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            Siguiente
+          </button>
+        </div>
+      </div>
+    </div>
+  }
+</div>
