@@ -4,15 +4,17 @@ import { RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
 import { catchError, map, of, startWith } from 'rxjs';
 
 import { HealthService } from '../../../core/services/health.service';
+import { GlobalAlertComponent } from '../global-alert/global-alert';
 
 type BackendStatus = 'checking' | 'online' | 'offline';
 
 @Component({
   selector: 'app-shell',
   standalone: true,
-  imports: [RouterOutlet, RouterLink, RouterLinkActive, AsyncPipe],
+  imports: [RouterOutlet, RouterLink, RouterLinkActive, AsyncPipe, GlobalAlertComponent],
   template: `
     <div class="min-h-screen bg-slate-50 text-slate-900">
+      <app-global-alert />
       <header class="border-b border-slate-200 bg-white">
         <div class="mx-auto flex max-w-7xl items-center justify-between px-4 py-4 sm:px-6 lg:px-8">
           <div>
