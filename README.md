@@ -5,7 +5,7 @@
 </p>
 
 <p align="center">
-  <a href="https://intech-frontend-production.up.railway.app/">https://intech-frontend-production.up.railway.app</strong>
+  <a href="https://intech-frontend-production.up.railway.app/">https://intech-frontend-production.up.railway.app/</a>
 </p>
 
 <p align="center">
@@ -31,7 +31,9 @@
 ## 🧭 Resumen
 
 `InTech Admin` es una SPA construida con **Angular + TypeScript + Tailwind CSS**
-para consumir un backend **Django + Django REST Framework**.
+para consumir el
+[`InTech Backend v2`](https://github.com/DenilDenilson/InTech-Backend-v2), construido con
+**Django + Django REST Framework** y autenticación JWT.
 
 La aplicación funciona como un panel interno para gestionar:
 
@@ -82,7 +84,16 @@ No es un ecommerce. Es un panel administrativo para inventario/catálogo interno
 - Mensajes de error locales.
 - Interceptor HTTP global para errores `4xx/5xx`.
 - Alerta global reutilizable.
-- Indicador de estado del backend usando `/readyz`.
+- Indicador de estado del backend usando `/readyz/`.
+
+### Autenticación
+
+- Inicio de sesión contra JWT SimpleJWT.
+- Persistencia de sesión y cierre de sesión local.
+- Envío automático de `Authorization: Bearer <access>`.
+- Renovación transparente del access token con refresh compartido.
+- Listados públicos en modo lectura.
+- Rutas y acciones de escritura protegidas.
 
 ---
 
@@ -95,6 +106,7 @@ No es un ecommerce. Es un panel administrativo para inventario/catálogo interno
 - Reactive Forms
 - RxJS
 - Angular Signals
+- JWT access/refresh
 - Tailwind CSS
 - Standalone Components
 
@@ -113,6 +125,7 @@ Signals → estado local de UI
 ```txt
 src/app/
 ├── core/
+│   ├── guards/
 │   ├── interceptors/
 │   ├── models/
 │   └── services/
@@ -123,6 +136,8 @@ src/app/
 │   ├── persons/
 │   │   ├── pages/
 │   │   └── services/
+│   ├── auth/
+│   │   └── pages/
 │   └── products/
 │       ├── pages/
 │       └── services/
@@ -134,30 +149,43 @@ src/app/
 
 ## 🛣️ Rutas
 
-| Ruta | Descripción |
-|---|---|
-| `/persons` | Listado de personas |
-| `/persons/new` | Crear persona |
-| `/persons/:id/edit` | Editar persona |
-| `/products` | Listado de productos |
-| `/products/new` | Crear producto |
-| `/products/:id/edit` | Editar producto |
+| Ruta | Acceso | Descripción |
+|---|---|---|
+| `/login` | Público | Inicio de sesión |
+| `/persons` | Público | Listado de personas |
+| `/persons/new` | JWT | Crear persona |
+| `/persons/:id/edit` | JWT | Editar persona |
+| `/products` | Público | Listado de productos |
+| `/products/new` | JWT | Crear producto |
+| `/products/:id/edit` | JWT | Editar producto |
 
 ---
 
 ## 🔌 API esperada
 
-Se asume que el backend Django corre en:
+En desarrollo se asume que el backend v2 corre en:
 
 ```txt
 http://localhost:8000
 ```
 
+El build de producción apunta a:
+
+```txt
+https://intech-backend-v2-production.up.railway.app
+```
+
+El contrato navegable está disponible en el
+[Swagger del backend v2](https://intech-backend-v2-production.up.railway.app/api/docs/).
+
 Endpoints usados:
 
 ```txt
-GET    /healthz
-GET    /readyz
+GET    /healthz/
+GET    /readyz/
+
+POST   /api/v1/auth/login/
+POST   /api/v1/auth/refresh/
 
 GET    /api/v1/persons/
 POST   /api/v1/persons/
@@ -171,6 +199,10 @@ GET    /api/v1/products/{id}/
 PATCH  /api/v1/products/{id}/
 DELETE /api/v1/products/{id}/
 ```
+
+Los `GET` de personas y productos son públicos. `POST`, `PUT`, `PATCH` y `DELETE`
+requieren un access token JWT. Login recibe `{ "username", "password" }`; refresh recibe
+`{ "refresh" }`.
 
 La API usa paginación DRF:
 
@@ -189,7 +221,7 @@ La API usa paginación DRF:
 
 Antes de levantar el proyecto, instala:
 
-- Node.js LTS
+- Node.js 22 LTS (la misma versión usada por el `Dockerfile`)
 - npm
 - Angular CLI
 
@@ -243,7 +275,7 @@ Ejemplo:
 ```ts
 export const environment = {
   production: true,
-  apiBaseUrl: 'https://api.midominio.com',
+  apiBaseUrl: 'https://intech-backend-v2-production.up.railway.app',
 };
 ```
 
@@ -286,7 +318,7 @@ http://localhost:8000
 Puedes verificarlo con:
 
 ```bash
-curl http://localhost:8000/readyz
+curl http://localhost:8000/readyz/
 ```
 
 Respuesta esperada:
@@ -309,7 +341,44 @@ El backend debe permitir el origen:
 http://localhost:4200
 ```
 
-La configuración CORS se maneja del lado de Django.
+Para el frontend desplegado también debe permitir:
+
+```txt
+https://intech-frontend-production.up.railway.app
+```
+
+En el backend v2 se configura mediante `CORS_ALLOWED_ORIGINS`, por ejemplo:
+
+```dotenv
+CORS_ALLOWED_ORIGINS=http://localhost:4200,https://intech-frontend-production.up.railway.app
+```
+
+La configuración CORS se maneja del lado de Django. El despliegue v2 se verificó mediante
+preflight y actualmente permite tanto `http://localhost:4200` como el dominio productivo del
+frontend. Si alguno de esos dominios cambia, actualiza la variable y redespliega el backend.
+
+---
+
+## 🔐 Autenticación JWT
+
+El backend v2 expone login y refresh, pero no endpoints de registro, usuario actual, logout o
+revocación. Por eso la SPA:
+
+1. Envía usuario y contraseña a `/api/v1/auth/login/`.
+2. Guarda access, refresh y el nombre de usuario en almacenamiento local.
+3. Adjunta el access token únicamente a requests de la API configurada.
+4. Ante un `401`, intenta una sola renovación y repite el request original.
+5. Si el refresh caduca, limpia la sesión. Los `GET` públicos continúan en modo lectura y las
+   escrituras vuelven a `/login`.
+6. Logout elimina la sesión local; no existe revocación server-side en el backend actual.
+
+Las credenciales no están hardcodeadas en el código. El backend desplegado publica una cuenta
+de demostración en su colección Bruno:
+
+```txt
+usuario: demo
+contraseña: demo1234
+```
 
 ---
 
@@ -328,8 +397,12 @@ Cobertura mínima incluida:
 - Renderizado del layout principal.
 - Requests de `PersonService`.
 - Requests de `ProductService`.
+- Paginación completa de owners siguiendo `next`.
 - Validaciones del formulario de Persona.
 - Validaciones del formulario de Producto.
+- Login, persistencia y logout.
+- Interceptor Bearer, renovación y retry.
+- Guards y redirecciones de autenticación.
 
 ---
 
@@ -347,22 +420,22 @@ La salida se genera en:
 dist/frontend/
 ```
 
-Antes de generar el build de producción, revisa:
+El environment productivo incluido ya usa el backend v2:
 
 ```txt
 src/environments/environment.prod.ts
 ```
 
-y cambia `apiBaseUrl` por la URL real del backend.
-
-Ejemplo:
-
 ```ts
 export const environment = {
   production: true,
-  apiBaseUrl: 'https://api.intech.example.com',
+  apiBaseUrl: 'https://intech-backend-v2-production.up.railway.app',
 };
 ```
+
+Si se cambia el dominio del backend hay que reconstruir la imagen, porque Angular reemplaza el
+environment durante el build. Si cambia el dominio del frontend, actualiza también el CORS del
+backend como se describe arriba.
 
 ---
 
@@ -420,7 +493,12 @@ librerías pesadas de componentes.
 
 ### Interceptor HTTP
 
-La app incluye un interceptor global para mostrar mensajes amigables ante errores:
+La app usa dos interceptores funcionales, en este orden:
+
+1. Errores globales, para mostrar mensajes amigables solo si el fallo final no pudo recuperarse.
+2. Autenticación, para adjuntar Bearer, renovar el access token y repetir el request una vez.
+
+Se contemplan:
 
 - backend apagado
 - errores 400
@@ -428,6 +506,13 @@ La app incluye un interceptor global para mostrar mensajes amigables ante errore
 - errores 404
 - rate limit 429
 - errores 500
+
+### Lecturas públicas y escrituras protegidas
+
+El backend v2 usa `IsAuthenticatedOrReadOnly`. La SPA refleja ese contrato: cualquier visitante
+puede consultar y filtrar los listados; login habilita crear, editar y eliminar. Esto evita
+forzar autenticación para recursos que el propio backend publica y mantiene las rutas de
+escritura protegidas con un guard.
 
 ---
 
@@ -456,8 +541,12 @@ Products:
 
 Extras:
 ✅ Health status
+✅ Login y logout JWT
+✅ Guard de rutas de escritura
+✅ Bearer + refresh automático
 ✅ Interceptor HTTP
 ✅ Alerta global
+✅ Owners multipágina
 ✅ Tests mínimos
 ✅ Build producción
 ```
