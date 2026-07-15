@@ -31,7 +31,7 @@ describe('App', () => {
 
     fixture.detectChanges();
 
-    const req = httpMock.expectOne(`${environment.apiBaseUrl}/readyz`);
+    const req = httpMock.expectOne(`${environment.apiBaseUrl}/readyz/`);
     expect(req.request.method).toBe('GET');
     req.flush({ status: 'ready' });
 

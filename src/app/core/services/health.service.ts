@@ -14,10 +14,10 @@ export class HealthService {
   constructor(private readonly http: HttpClient) {}
 
   healthz(): Observable<HealthResponse> {
-    return this.http.get<HealthResponse>(`${this.apiBaseUrl}/healthz`);
+    return this.http.get<HealthResponse>(`${this.apiBaseUrl}/healthz/`);
   }
 
   readyz(): Observable<HealthResponse> {
-    return this.http.get<HealthResponse>(`${this.apiBaseUrl}/readyz`);
+    return this.http.get<HealthResponse>(`${this.apiBaseUrl}/readyz/`);
   }
 }

@@ -87,7 +87,7 @@ type BackendStatus = 'checking' | 'online' | 'offline';
             </div>
 
             <p class="mt-2 text-xs text-slate-500">
-              Consulta realizada contra /readyz.
+              Consulta realizada contra /readyz/.
             </p>
           </div>
             }
