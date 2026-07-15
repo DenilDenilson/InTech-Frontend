@@ -1,0 +1,67 @@
+<div class="mx-auto max-w-md py-4 sm:py-8">
+  <div class="text-center">
+    <p class="text-xs font-semibold uppercase tracking-[0.2em] text-indigo-600">Acceso protegido</p>
+    <h2 class="mt-2 text-2xl font-semibold text-slate-950">Iniciar sesión</h2>
+    <p class="mt-2 text-sm text-slate-600">
+      Ingresa tus credenciales para crear, editar o eliminar registros.
+    </p>
+  </div>
+
+  @if (errorMessage()) {
+    <div
+      role="alert"
+      aria-live="polite"
+      class="mt-6 rounded-lg border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700"
+    >
+      {{ errorMessage() }}
+    </div>
+  }
+
+  <form
+    [formGroup]="form"
+    (ngSubmit)="login()"
+    class="mt-6 space-y-5 rounded-xl border border-slate-200 bg-slate-50 p-5"
+  >
+    <label class="block space-y-1">
+      <span class="text-sm font-medium text-slate-700">Usuario</span>
+      <input
+        type="text"
+        formControlName="username"
+        autocomplete="username"
+        inputmode="text"
+        maxlength="150"
+        class="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm outline-none transition focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100"
+      />
+
+      @if (isInvalid('username')) {
+        <p class="text-xs text-rose-600">Ingresa tu nombre de usuario.</p>
+      }
+    </label>
+
+    <label class="block space-y-1">
+      <span class="text-sm font-medium text-slate-700">Contraseña</span>
+      <input
+        type="password"
+        formControlName="password"
+        autocomplete="current-password"
+        class="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm outline-none transition focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100"
+      />
+
+      @if (isInvalid('password')) {
+        <p class="text-xs text-rose-600">Ingresa tu contraseña.</p>
+      }
+    </label>
+
+    <button
+      type="submit"
+      [disabled]="isSubmitting()"
+      class="inline-flex w-full items-center justify-center rounded-lg bg-indigo-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-indigo-700 disabled:cursor-not-allowed disabled:opacity-60"
+    >
+      {{ isSubmitting() ? 'Iniciando sesión...' : 'Iniciar sesión' }}
+    </button>
+  </form>
+
+  <p class="mt-4 text-center text-xs text-slate-500">
+    Los listados siguen disponibles públicamente; el acceso solo se solicita para realizar cambios.
+  </p>
+</div>
