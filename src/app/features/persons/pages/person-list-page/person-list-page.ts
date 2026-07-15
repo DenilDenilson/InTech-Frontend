@@ -1,10 +1,12 @@
 import { DatePipe } from '@angular/common';
-import { Component, OnInit, signal } from '@angular/core';
+import { Component, OnInit, inject, signal } from '@angular/core';
 import { FormControl, FormGroup, ReactiveFormsModule } from '@angular/forms';
 import { RouterLink } from '@angular/router';
 import { finalize } from 'rxjs';
 
 import { Person, PersonFilters } from '../../../../core/models/person';
+import { AuthService } from '../../../../core/services/auth.service';
+import { NotificationService } from '../../../../core/services/notification.service';
 import { PersonService } from '../../services/person.service';
 
 type PersonOrdering = 'created_at' | '-created_at';
@@ -16,6 +18,10 @@ type PersonOrdering = 'created_at' | '-created_at';
   templateUrl: './person-list-page.html',
 })
 export class PersonListPageComponent implements OnInit {
+  readonly authService = inject(AuthService);
+
+  private readonly notificationService = inject(NotificationService);
+
   readonly persons = signal<Person[]>([]);
 
   readonly count = signal(0);
@@ -84,6 +90,11 @@ export class PersonListPageComponent implements OnInit {
   }
 
   deletePerson(person: Person): void {
+    if (!this.authService.isAuthenticated()) {
+      this.notificationService.showInfo('Inicia sesión para eliminar personas.');
+      return;
+    }
+
     const fullName = `${person.first_name} ${person.last_name}`.trim();
     const confirmed = confirm(`¿Seguro que deseas eliminar a ${fullName}?`);
 
@@ -99,6 +110,7 @@ export class PersonListPageComponent implements OnInit {
       .pipe(finalize(() => this.isDeletingId.set(null)))
       .subscribe({
         next: () => {
+          this.notificationService.showSuccess('Persona eliminada correctamente.');
           const shouldGoPreviousPage = this.persons().length === 1 && this.page() > 1;
           this.loadPersons(shouldGoPreviousPage ? this.page() - 1 : this.page());
         },

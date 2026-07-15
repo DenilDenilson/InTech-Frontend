@@ -6,6 +6,8 @@ import { RouterLink } from '@angular/router';
 import { debounceTime, finalize } from 'rxjs';
 
 import { Product, ProductFilters } from '../../../../core/models/product';
+import { AuthService } from '../../../../core/services/auth.service';
+import { NotificationService } from '../../../../core/services/notification.service';
 import { PersonService } from '../../../persons/services/person.service';
 import { ProductService } from '../../services/product.service';
 
@@ -24,7 +26,10 @@ interface OwnerDisplay {
   templateUrl: './product-list-page.html',
 })
 export class ProductListPageComponent implements OnInit {
+  readonly authService = inject(AuthService);
+
   private readonly destroyRef = inject(DestroyRef);
+  private readonly notificationService = inject(NotificationService);
 
   readonly products = signal<Product[]>([]);
   readonly ownerMap = signal<Record<string, OwnerDisplay>>({});
@@ -193,6 +198,11 @@ export class ProductListPageComponent implements OnInit {
   }
 
   deleteProduct(product: Product): void {
+    if (!this.authService.isAuthenticated()) {
+      this.notificationService.showInfo('Inicia sesión para eliminar productos.');
+      return;
+    }
+
     const confirmed = confirm(`¿Seguro que deseas eliminar el producto ${product.name}?`);
 
     if (!confirmed) {
@@ -207,6 +217,7 @@ export class ProductListPageComponent implements OnInit {
       .pipe(finalize(() => this.isDeletingId.set(null)))
       .subscribe({
         next: () => {
+          this.notificationService.showSuccess('Producto eliminado correctamente.');
           const shouldGoPreviousPage = this.products().length === 1 && this.page() > 1;
           this.loadProducts(shouldGoPreviousPage ? this.page() - 1 : this.page());
         },

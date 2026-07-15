@@ -30,7 +30,7 @@ function getFriendlyErrorMessage(error: HttpErrorResponse): string {
   }
 
   if (error.status === 401) {
-    return 'No autorizado. Inicia sesión para continuar.';
+    return 'Tu sesión expiró o no es válida. Inicia sesión para continuar.';
   }
 
   if (error.status === 403) {

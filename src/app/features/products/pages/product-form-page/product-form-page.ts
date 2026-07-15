@@ -5,6 +5,7 @@ import { finalize } from 'rxjs';
 
 import { Person } from '../../../../core/models/person';
 import { ProductPayload } from '../../../../core/models/product';
+import { NotificationService } from '../../../../core/services/notification.service';
 import { PersonService } from '../../../persons/services/person.service';
 import { ProductService } from '../../services/product.service';
 
@@ -45,6 +46,7 @@ export class ProductFormPageComponent implements OnInit {
     private readonly router: Router,
     private readonly productService: ProductService,
     private readonly personService: PersonService,
+    private readonly notificationService: NotificationService,
   ) {
     this.productId = this.route.snapshot.paramMap.get('id');
     this.isEditMode.set(Boolean(this.productId));
@@ -117,6 +119,11 @@ export class ProductFormPageComponent implements OnInit {
 
     request$.pipe(finalize(() => this.isSaving.set(false))).subscribe({
       next: () => {
+        this.notificationService.showSuccess(
+          this.isEditMode()
+            ? 'Producto actualizado correctamente.'
+            : 'Producto creado correctamente.',
+        );
         this.router.navigate(['/products']);
       },
       error: (error) => {

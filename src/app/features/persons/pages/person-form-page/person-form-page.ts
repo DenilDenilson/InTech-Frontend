@@ -4,6 +4,7 @@ import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { finalize } from 'rxjs';
 
 import { PersonPayload } from '../../../../core/models/person';
+import { NotificationService } from '../../../../core/services/notification.service';
 import { PersonService } from '../../services/person.service';
 
 @Component({
@@ -39,6 +40,7 @@ export class PersonFormPageComponent implements OnInit {
     private readonly route: ActivatedRoute,
     private readonly router: Router,
     private readonly personService: PersonService,
+    private readonly notificationService: NotificationService,
   ) {
     this.personId = this.route.snapshot.paramMap.get('id');
     this.isEditMode.set(Boolean(this.personId));
@@ -90,11 +92,18 @@ export class PersonFormPageComponent implements OnInit {
 
     request$.pipe(finalize(() => this.isSaving.set(false))).subscribe({
       next: () => {
+        this.notificationService.showSuccess(
+          this.isEditMode()
+            ? 'Persona actualizada correctamente.'
+            : 'Persona creada correctamente.',
+        );
         this.router.navigate(['/persons']);
       },
       error: (error) => {
         if (error.status === 400) {
-          this.errorMessage.set('Revisa los datos. El email podría estar duplicado o ser inválido.');
+          this.errorMessage.set(
+            'Revisa los datos. El email podría estar duplicado o ser inválido.',
+          );
           return;
         }
 
