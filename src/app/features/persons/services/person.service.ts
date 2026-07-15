@@ -1,6 +1,6 @@
 import { HttpClient } from '@angular/common/http';
 import { Injectable } from '@angular/core';
-import { Observable } from 'rxjs';
+import { EMPTY, Observable, expand, reduce } from 'rxjs';
 
 import { environment } from '../../../../environments/environment';
 import { PaginatedResponse } from '../../../core/models/paginated-response';
@@ -19,6 +19,15 @@ export class PersonService {
     return this.http.get<PaginatedResponse<Person>>(this.apiUrl, {
       params: cleanParams(filters as Record<string, unknown>),
     });
+  }
+
+  getAllPersons(filters: Omit<PersonFilters, 'page'> = {}): Observable<Person[]> {
+    return this.getPersons(filters).pipe(
+      expand((response) =>
+        response.next ? this.http.get<PaginatedResponse<Person>>(response.next) : EMPTY,
+      ),
+      reduce((persons, response) => [...persons, ...response.results], [] as Person[]),
+    );
   }
 
   getPerson(id: string): Observable<Person> {

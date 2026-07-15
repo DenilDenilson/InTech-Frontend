@@ -59,9 +59,9 @@ export class ProductFormPageComponent implements OnInit {
   }
 
   loadOwners(): void {
-    this.personService.getPersons({ ordering: '-created_at' }).subscribe({
-      next: (response) => {
-        this.owners.set(response.results);
+    this.personService.getAllPersons({ ordering: '-created_at' }).subscribe({
+      next: (owners) => {
+        this.owners.set(owners);
       },
       error: () => {
         this.errorMessage.set('No se pudo cargar la lista de owners.');

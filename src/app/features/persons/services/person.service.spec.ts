@@ -14,11 +14,7 @@ describe('PersonService', () => {
 
   beforeEach(() => {
     TestBed.configureTestingModule({
-      providers: [
-        PersonService,
-        provideHttpClient(),
-        provideHttpClientTesting(),
-      ],
+      providers: [PersonService, provideHttpClient(), provideHttpClientTesting()],
     });
 
     service = TestBed.inject(PersonService);
@@ -60,6 +56,74 @@ describe('PersonService', () => {
           first_name: 'Ana',
           last_name: 'Torres',
           email: 'ana@example.com',
+          created_at: '2026-01-01T00:00:00Z',
+        },
+      ],
+    });
+  });
+
+  it('should list all persons by following each next URL until it is null', () => {
+    const secondPageUrl = `${apiUrl}?ordering=-created_at&page=2`;
+    const thirdPageUrl = `${apiUrl}?cursor=next-page-token`;
+
+    service.getAllPersons({ ordering: '-created_at' }).subscribe((persons) => {
+      expect(persons.map((person) => person.id)).toEqual(['person-1', 'person-2', 'person-3']);
+    });
+
+    const firstPageRequest = httpMock.expectOne(
+      (request) => request.url === apiUrl && request.params.get('ordering') === '-created_at',
+    );
+
+    expect(firstPageRequest.request.method).toBe('GET');
+
+    firstPageRequest.flush({
+      count: 3,
+      next: secondPageUrl,
+      previous: null,
+      results: [
+        {
+          id: 'person-1',
+          first_name: 'Ana',
+          last_name: 'Torres',
+          email: 'ana@example.com',
+          created_at: '2026-01-03T00:00:00Z',
+        },
+      ],
+    });
+
+    const secondPageRequest = httpMock.expectOne(secondPageUrl);
+
+    expect(secondPageRequest.request.method).toBe('GET');
+
+    secondPageRequest.flush({
+      count: 3,
+      next: thirdPageUrl,
+      previous: apiUrl,
+      results: [
+        {
+          id: 'person-2',
+          first_name: 'Luis',
+          last_name: 'Rojas',
+          email: 'luis@example.com',
+          created_at: '2026-01-02T00:00:00Z',
+        },
+      ],
+    });
+
+    const thirdPageRequest = httpMock.expectOne(thirdPageUrl);
+
+    expect(thirdPageRequest.request.method).toBe('GET');
+
+    thirdPageRequest.flush({
+      count: 3,
+      next: null,
+      previous: secondPageUrl,
+      results: [
+        {
+          id: 'person-3',
+          first_name: 'Marta',
+          last_name: 'Diaz',
+          email: 'marta@example.com',
           created_at: '2026-01-01T00:00:00Z',
         },
       ],

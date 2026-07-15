@@ -5,7 +5,6 @@ import { FormControl, FormGroup, ReactiveFormsModule } from '@angular/forms';
 import { RouterLink } from '@angular/router';
 import { debounceTime, finalize } from 'rxjs';
 
-import { Person } from '../../../../core/models/person';
 import { Product, ProductFilters } from '../../../../core/models/product';
 import { PersonService } from '../../../persons/services/person.service';
 import { ProductService } from '../../services/product.service';
@@ -112,16 +111,9 @@ export class ProductListPageComponent implements OnInit {
       });
   }
 
-  loadOwners(page = 1, accumulatedOwners: Person[] = []): void {
-    this.personService.getPersons({ page, ordering: '-created_at' }).subscribe({
-      next: (response) => {
-        const owners = [...accumulatedOwners, ...response.results];
-
-        if (response.next) {
-          this.loadOwners(page + 1, owners);
-          return;
-        }
-
+  loadOwners(): void {
+    this.personService.getAllPersons({ ordering: '-created_at' }).subscribe({
+      next: (owners) => {
         const ownerMap = owners.reduce<Record<string, OwnerDisplay>>((acc, owner) => {
           acc[owner.id] = {
             name: `${owner.first_name} ${owner.last_name}`.trim(),
@@ -161,8 +153,7 @@ export class ProductListPageComponent implements OnInit {
   changeOrdering(field: SortableProductField): void {
     const currentOrdering = this.filtersForm.controls.ordering.value;
 
-    const nextOrdering: ProductOrdering =
-      currentOrdering === field ? `-${field}` : field;
+    const nextOrdering: ProductOrdering = currentOrdering === field ? `-${field}` : field;
 
     this.filtersForm.controls.ordering.setValue(nextOrdering);
   }
