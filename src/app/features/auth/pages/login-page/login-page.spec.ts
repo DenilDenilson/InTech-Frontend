@@ -1,7 +1,7 @@
 import { HttpErrorResponse } from '@angular/common/http';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { ActivatedRoute, Router } from '@angular/router';
-import { Observable, of, throwError } from 'rxjs';
+import { Observable, Subject, of, throwError } from 'rxjs';
 
 import { AuthSession, LoginCredentials } from '../../../../core/models/auth';
 import { AuthService } from '../../../../core/services/auth.service';
@@ -94,5 +94,18 @@ describe('LoginPageComponent', () => {
 
     expect(fixture.componentInstance.errorMessage()).toBe('Usuario o contraseña incorrectos.');
     expect(fixture.nativeElement.textContent).toContain('Usuario o contraseña incorrectos.');
+  });
+
+  it('does not navigate from a login response after the page is destroyed', () => {
+    const pendingLogin = new Subject<AuthSession>();
+    loginSpy.mockReturnValue(pendingLogin);
+    fixture.componentInstance.form.setValue({ username: 'admin', password: 'secret' });
+    fixture.componentInstance.login();
+
+    fixture.destroy();
+    pendingLogin.next(session);
+    pendingLogin.complete();
+
+    expect(navigateByUrlSpy).not.toHaveBeenCalled();
   });
 });

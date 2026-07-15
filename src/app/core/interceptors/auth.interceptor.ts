@@ -1,7 +1,13 @@
-import { HttpErrorResponse, HttpInterceptorFn, HttpRequest } from '@angular/common/http';
+import {
+  HttpErrorResponse,
+  HttpEvent,
+  HttpHandlerFn,
+  HttpInterceptorFn,
+  HttpRequest,
+} from '@angular/common/http';
 import { inject } from '@angular/core';
 import { Router } from '@angular/router';
-import { catchError, map, of, switchMap, throwError } from 'rxjs';
+import { Observable, catchError, map, of, switchMap, throwError } from 'rxjs';
 
 import { environment } from '../../../environments/environment';
 import { getSafeReturnUrl } from '../../shared/utils/safe-return-url';
@@ -29,6 +35,21 @@ export const authInterceptor: HttpInterceptorFn = (request, next) => {
       }
 
       const isPublicRead = request.method === 'GET' || request.method === 'HEAD';
+      const currentAccessToken = authService.getAccessToken();
+
+      // The request may have been sent before another login or refresh replaced
+      // its token. Recover with the current session without refreshing (and,
+      // importantly, without allowing this late 401 to clear the new session).
+      if (currentAccessToken && currentAccessToken !== initialAccessToken) {
+        return retryWithAccessToken(
+          request,
+          next,
+          currentAccessToken,
+          authService,
+          router,
+          isPublicRead,
+        );
+      }
 
       return authService.refreshAccessToken().pipe(
         map((accessToken) => ({ success: true as const, accessToken })),
@@ -40,7 +61,14 @@ export const authInterceptor: HttpInterceptorFn = (request, next) => {
             // A different login may have completed while the old refresh was
             // pending. Preserve it and recover the request with that session.
             if (currentAccessToken && currentAccessToken !== initialAccessToken) {
-              return next(addAccessToken(request, currentAccessToken));
+              return retryWithAccessToken(
+                request,
+                next,
+                currentAccessToken,
+                authService,
+                router,
+                isPublicRead,
+              );
             }
 
             if (isPublicRead) {
@@ -53,28 +81,13 @@ export const authInterceptor: HttpInterceptorFn = (request, next) => {
             return throwError(() => refreshResult.refreshError);
           }
 
-          return next(addAccessToken(request, refreshResult.accessToken)).pipe(
-            catchError((retryError: unknown) => {
-              if (retryError instanceof HttpErrorResponse && retryError.status === 401) {
-                const currentAccessToken = authService.getAccessToken();
-
-                if (currentAccessToken && currentAccessToken !== refreshResult.accessToken) {
-                  return next(addAccessToken(request, currentAccessToken));
-                }
-
-                if (currentAccessToken === refreshResult.accessToken) {
-                  authService.logout();
-                }
-
-                if (isPublicRead) {
-                  return next(removeAuthorization(request));
-                }
-
-                redirectToLogin(router);
-              }
-
-              return throwError(() => retryError);
-            }),
+          return retryWithAccessToken(
+            request,
+            next,
+            refreshResult.accessToken,
+            authService,
+            router,
+            isPublicRead,
           );
         }),
       );
@@ -82,7 +95,64 @@ export const authInterceptor: HttpInterceptorFn = (request, next) => {
   );
 };
 
-function addAccessToken(request: HttpRequest<unknown>, accessToken: string | null) {
+function retryWithAccessToken(
+  request: HttpRequest<unknown>,
+  next: HttpHandlerFn,
+  accessToken: string,
+  authService: AuthService,
+  router: Router,
+  isPublicRead: boolean,
+  remainingSessionHandoffs = 1,
+): Observable<HttpEvent<unknown>> {
+  return next(addAccessToken(request, accessToken)).pipe(
+    catchError((retryError: unknown) => {
+      if (!(retryError instanceof HttpErrorResponse) || retryError.status !== 401) {
+        return throwError(() => retryError);
+      }
+
+      const currentAccessToken = authService.getAccessToken();
+
+      // Bound session handoff recovery so repeated external storage/login
+      // changes cannot create an unbounded retry loop.
+      if (
+        remainingSessionHandoffs > 0 &&
+        currentAccessToken &&
+        currentAccessToken !== accessToken
+      ) {
+        return retryWithAccessToken(
+          request,
+          next,
+          currentAccessToken,
+          authService,
+          router,
+          isPublicRead,
+          remainingSessionHandoffs - 1,
+        );
+      }
+
+      if (currentAccessToken === accessToken) {
+        authService.logout();
+      }
+
+      if (isPublicRead) {
+        return next(removeAuthorization(request));
+      }
+
+      // Do not redirect or clear if yet another session replaced the attempted
+      // one after the bounded handoff. The failed request still propagates.
+      if (!currentAccessToken || currentAccessToken === accessToken) {
+        redirectToLogin(router);
+      }
+
+      return throwError(() => retryError);
+    }),
+  );
+}
+
+function addAccessToken(
+  request: HttpRequest<unknown>,
+  accessToken: string | null,
+): HttpRequest<unknown> {
   if (!accessToken) {
     return request;
   }

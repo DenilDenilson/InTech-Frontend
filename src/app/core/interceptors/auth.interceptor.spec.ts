@@ -178,6 +178,59 @@ describe('authInterceptor', () => {
     expect(navigateSpy).not.toHaveBeenCalled();
   });
 
+  it('uses a new login for a late 401 without starting a refresh', () => {
+    const authService = TestBed.inject(AuthService);
+    const navigateSpy = vi.spyOn(TestBed.inject(Router), 'navigate');
+    const results: unknown[] = [];
+
+    http.post(productsUrl, { name: 'Laptop' }).subscribe((value) => results.push(value));
+    const oldSessionRequest = httpMock.expectOne(productsUrl);
+    expect(oldSessionRequest.request.headers.get('Authorization')).toBe('Bearer access-token');
+
+    authService.login({ username: 'other-user', password: 'new-password' }).subscribe();
+    httpMock.expectOne(`${apiBaseUrl}/api/v1/auth/login/`).flush({
+      access: 'new-login-access',
+      refresh: 'new-login-refresh',
+    });
+
+    oldSessionRequest.flush(null, { status: 401, statusText: 'Unauthorized' });
+
+    httpMock.expectNone(refreshUrl);
+    const recoveredRequest = httpMock.expectOne(productsUrl);
+    expect(recoveredRequest.request.headers.get('Authorization')).toBe('Bearer new-login-access');
+    recoveredRequest.flush({ ok: true });
+
+    expect(results).toEqual([{ ok: true }]);
+    expect(authService.username()).toBe('other-user');
+    expect(authService.getAccessToken()).toBe('new-login-access');
+    expect(navigateSpy).not.toHaveBeenCalled();
+  });
+
+  it('does not refresh again when another old request receives 401 after refresh completed', () => {
+    const results: unknown[] = [];
+    http.post(personsUrl, { first_name: 'Ana' }).subscribe((value) => results.push(value));
+    http.post(productsUrl, { name: 'Laptop' }).subscribe((value) => results.push(value));
+
+    const oldPersonRequest = httpMock.expectOne(personsUrl);
+    const oldProductRequest = httpMock.expectOne(productsUrl);
+    oldPersonRequest.flush(null, { status: 401, statusText: 'Unauthorized' });
+
+    httpMock.expectOne(refreshUrl).flush({ access: 'fresh-access' });
+    const personRetry = httpMock.expectOne(personsUrl);
+    expect(personRetry.request.headers.get('Authorization')).toBe('Bearer fresh-access');
+    personRetry.flush({ ok: 'person' });
+
+    oldProductRequest.flush(null, { status: 401, statusText: 'Unauthorized' });
+
+    httpMock.expectNone(refreshUrl);
+    const productRetry = httpMock.expectOne(productsUrl);
+    expect(productRetry.request.headers.get('Authorization')).toBe('Bearer fresh-access');
+    productRetry.flush({ ok: 'product' });
+
+    expect(results).toEqual([{ ok: 'person' }, { ok: 'product' }]);
+    expect(TestBed.inject(AuthService).getAccessToken()).toBe('fresh-access');
+  });
+
   it('preserves a new login when the retry for the previous session gets a 401', () => {
     const authService = TestBed.inject(AuthService);
     const navigateSpy = vi.spyOn(TestBed.inject(Router), 'navigate');

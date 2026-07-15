@@ -1,5 +1,6 @@
 import { HttpErrorResponse } from '@angular/common/http';
-import { Component, signal } from '@angular/core';
+import { Component, DestroyRef, inject, signal } from '@angular/core';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { FormControl, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
 import { ActivatedRoute, Router } from '@angular/router';
 import { finalize } from 'rxjs';
@@ -15,6 +16,7 @@ import { getSafeReturnUrl } from '../../../../shared/utils/safe-return-url';
   templateUrl: './login-page.html',
 })
 export class LoginPageComponent {
+  private readonly destroyRef = inject(DestroyRef);
   private readonly returnUrl: string;
 
   readonly isSubmitting = signal(false);
@@ -62,7 +64,10 @@ export class LoginPageComponent {
 
     this.authService
       .login(credentials)
-      .pipe(finalize(() => this.isSubmitting.set(false)))
+      .pipe(
+        takeUntilDestroyed(this.destroyRef),
+        finalize(() => this.isSubmitting.set(false)),
+      )
       .subscribe({
         next: () => {
           void this.router.navigateByUrl(this.returnUrl, { replaceUrl: true });
